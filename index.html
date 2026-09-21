@@ -2,14 +2,14 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Core frameworks for WebXR and Augmented Reality tracking -->
-    <script src="https://aframe.io"></script>
-    <script src="https://jsdelivr.net"></script>
+    <!-- Correct, full CDN scripts required to power the AR engine -->
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
     <!-- 
       AR Scene Configuration:
-      - physicallyCorrectLights and colorManagement ensure the 3D pizza textures reflect light realistically.
+      - physicallyCorrectLights and colorManagement ensure the 3D pizza textures look natural.
     -->
     <a-scene 
       mindar-image="imageTargetSrc: https://jsdelivr.net;" 
@@ -21,23 +21,23 @@
       <a-assets>
         <!-- 
           Your 3D Pizza Asset:
-          Remember to change "./pizza.glb" to match your exact file name when you upload it to GitHub!
+          Make sure your uploaded file is named exactly "pizza.glb" and sits in the same GitHub folder.
         -->
         <a-asset-item id="pizzaModel" src="./pizza.glb"></a-asset-item>
       </a-assets>
 
-      <!-- Camera system required for WebAR viewport -->
+      <!-- Main camera system required for WebAR rendering -->
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Realistic Lighting setup to blend the 3D object into the real world environment -->
+      <!-- Balanced lighting to blend the virtual pizza with the real world environment -->
       <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
       <a-light type="directional" color="#ffffff" intensity="0.6" position="1 2 1"></a-light>
       
       <!-- 
         Image Tracking Target:
-        - The 2D plane is completely gone.
-        - The pizza is set to rotate 360 degrees smoothly on a loop.
-        - Tweak scale="0.05 0.05 0.05" up or down depending on how large your downloaded model is.
+        - The flat 2D background plane has been completely removed for maximum realism.
+        - The 3D pizza is configured to rotate 360 degrees smoothly on an infinite loop.
+        - Adjust scale="0.05 0.05 0.05" if your 3D model shows up too large or too small.
       -->
       
         <a-gltf-model 
