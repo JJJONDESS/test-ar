@@ -2,44 +2,31 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Correct, full CDN scripts required to power the AR engine -->
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
-    <!-- 
-      AR Scene Configuration:
-      - This full URL points directly to the working template target file (.mind)
-    -->
-    <a-scene 
-      mindar-image="imageTargetSrc: https://jsdelivr.net;" 
-      color-space="sRGB" 
-      renderer="colorManagement: true, physicallyCorrectLights: true" 
-      vr-mode-ui="enabled: false" 
-      device-orientation-permission-ui="enabled: false">
-      
+    <!-- Configured with your working version's exact scene settings -->
+    <a-scene mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
       <a-assets>
-        <!-- 
-          - This full URL points directly to a stable online template 3D model (.gltf)
-          - Once this test works, you can change this back to your local "./pizza.glb" file!
-        -->
-        <a-asset-item id="pizzaModel" src="https://jsdelivr.net"></a-asset-item>
+        <!-- Your pizza model asset. Make sure "pizza.glb" is uploaded to your main GitHub folder -->
+        <a-asset-item id="pizzaModel" src="./pizza.glb"></a-asset-item>
       </a-assets>
 
-      <!-- Main camera system required for WebAR rendering -->
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Balanced lighting to blend the virtual pizza with the real world environment -->
+      <!-- Custom environment lighting so your 3D pizza looks bright and realistic -->
       <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
       <a-light type="directional" color="#ffffff" intensity="0.6" position="1 2 1"></a-light>
+
       
-      <!-- 
-        Image Tracking Target Wrapper:
-        - This wrapper is REQUIRED so the app knows when to show the 3D model
-      -->
-      
+        <!-- 
+          - The flat 2D plane is completely gone.
+          - Your pizza is loaded here with a slow, smooth spinning animation.
+          - Depending on your model's built-in size, you might need to adjust the scale numbers below.
+        -->
         <a-gltf-model 
-          id="pizza"
+          id="pizza" 
           src="#pizzaModel" 
           rotation="0 0 0" 
           position="0 0 0.1" 
