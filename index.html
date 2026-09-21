@@ -9,7 +9,7 @@
   <body>
     <!-- 
       AR Scene Configuration:
-      - physicallyCorrectLights and colorManagement ensure the 3D pizza textures look natural.
+      - This full URL points directly to the working template target file (.mind)
     -->
     <a-scene 
       mindar-image="imageTargetSrc: https://jsdelivr.net;" 
@@ -20,8 +20,8 @@
       
       <a-assets>
         <!-- 
-          Your 3D Pizza Asset:
-          Make sure your uploaded file is named exactly "pizza.glb" and sits in the same GitHub folder.
+          - This full URL points directly to a stable online template 3D model (.gltf)
+          - Once this test works, you can change this back to your local "./pizza.glb" file!
         -->
         <a-asset-item id="pizzaModel" src="https://jsdelivr.net"></a-asset-item>
       </a-assets>
@@ -34,10 +34,8 @@
       <a-light type="directional" color="#ffffff" intensity="0.6" position="1 2 1"></a-light>
       
       <!-- 
-        Image Tracking Target:
-        - The flat 2D background plane has been completely removed for maximum realism.
-        - The 3D pizza is configured to rotate 360 degrees smoothly on an infinite loop.
-        - Adjust scale="0.05 0.05 0.05" if your 3D model shows up too large or too small.
+        Image Tracking Target Wrapper:
+        - This wrapper is REQUIRED so the app knows when to show the 3D model
       -->
       
         <a-gltf-model 
