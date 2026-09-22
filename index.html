@@ -2,35 +2,31 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://aframe.io"></script>
+    <script src="https://jsdelivr.net"></script>
   </head>
   <body>
-    <!-- Configured with your working version's exact scene settings -->
-    <a-scene mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <a-scene mindar-image="imageTargetSrc: https://jsdelivr.net;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
       <a-assets>
-        <!-- Your pizza model asset. Make sure "pizza.glb" is uploaded to your main GitHub folder -->
         <a-asset-item id="pizzaModel" src="./pizza.glb"></a-asset-item>
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- Custom environment lighting so your 3D pizza looks bright and realistic -->
       <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
       <a-light type="directional" color="#ffffff" intensity="0.6" position="1 2 1"></a-light>
 
       
-      
         <!-- 
-          - Your pizza is safely nested inside the target container.
-          - Scale is currently set to 0.05 0.05 0.05. If nothing shows up after scanning, we will adjust this size next!
+          UPDATED SCALE: Changed from 0.05 to a full baseline 1 1 1.
+          If your pizza was loading as an invisible microscopic speck, this fixes it.
         -->
         <a-gltf-model 
           id="pizza" 
           src="#pizzaModel" 
           rotation="0 0 0" 
           position="0 0 0.1" 
-          scale="0.05 0.05 0.05" 
+          scale="1 1 1" 
           animation="property: rotation; to: 0 360 0; dur: 6000; easing: linear; loop: true">
         </a-gltf-model>
       
