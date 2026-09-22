@@ -20,10 +20,10 @@
       <a-light type="directional" color="#ffffff" intensity="0.6" position="1 2 1"></a-light>
 
       
+      
         <!-- 
-          - The flat 2D plane is completely gone.
-          - Your pizza is loaded here with a slow, smooth spinning animation.
-          - Depending on your model's built-in size, you might need to adjust the scale numbers below.
+          - Your pizza is safely nested inside the target container.
+          - Scale is currently set to 0.05 0.05 0.05. If nothing shows up after scanning, we will adjust this size next!
         -->
         <a-gltf-model 
           id="pizza" 
@@ -33,6 +33,7 @@
           scale="0.05 0.05 0.05" 
           animation="property: rotation; to: 0 360 0; dur: 6000; easing: linear; loop: true">
         </a-gltf-model>
+      
       
     </a-scene>
   </body>
