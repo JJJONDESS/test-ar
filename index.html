@@ -30,7 +30,12 @@
     let scene, camera, renderer, pizzaModel;
     let placed = false;
 
-    // Live device orientation readings, updated continuously
+    // Raw incoming readings
+    let rawAlpha = 0, rawBeta = 0, rawGamma = 0;
+    // Smoothed readings actually used for rendering
+    let smoothAlpha = 0, smoothBeta = 0, smoothGamma = 0;
+    const smoothingFactor = 0.15; // lower = smoother but laggier, higher = snappier but jumpier
+
     let deviceAlpha = 0, deviceBeta = 0, deviceGamma = 0;
     let screenOrientAngle = 0;
 
@@ -60,7 +65,7 @@
       const loader = new THREE.GLTFLoader();
       loader.load('./pizza.glb', (gltf) => {
         pizzaModel = gltf.scene;
-        pizzaModel.scale.set(0.3, 0.3, 0.3); // tweak to taste
+        pizzaModel.scale.set(1.0, 1.0, 1.0); // bumped up from 0.3 — adjust further if still off
         pizzaModel.visible = false;
         scene.add(pizzaModel);
       });
@@ -87,9 +92,18 @@
 
     function handleOrientation(e) {
       if (e.alpha === null) return; // some devices briefly fire null readings
-      deviceAlpha = e.alpha;
-      deviceBeta = e.beta;
-      deviceGamma = e.gamma;
+      rawAlpha = e.alpha;
+      rawBeta = e.beta;
+      rawGamma = e.gamma;
+
+      // Exponential smoothing to reduce sensor jitter/noise
+      smoothAlpha += (rawAlpha - smoothAlpha) * smoothingFactor;
+      smoothBeta += (rawBeta - smoothBeta) * smoothingFactor;
+      smoothGamma += (rawGamma - smoothGamma) * smoothingFactor;
+
+      deviceAlpha = smoothAlpha;
+      deviceBeta = smoothBeta;
+      deviceGamma = smoothGamma;
     }
 
     function handleScreenOrientation() {
@@ -133,6 +147,13 @@
     function animate() {
       requestAnimationFrame(animate);
       applyDeviceOrientationToCamera();
+
+      // Slow constant spin so the model's 3D depth/sides are visible
+      // even if you're standing still and only turning the phone.
+      if (pizzaModel && placed) {
+        pizzaModel.rotation.y += 0.005;
+      }
+
       renderer.render(scene, camera);
     }
   </script>
