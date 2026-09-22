@@ -29,7 +29,16 @@
   <script>
     let scene, camera, renderer, pizzaModel;
     let placed = false;
-    let alpha0 = null, beta0 = null, gamma0 = null; // orientation offset at placement time
+
+    // Live device orientation readings, updated continuously
+    let deviceAlpha = 0, deviceBeta = 0, deviceGamma = 0;
+    let screenOrientAngle = 0;
+
+    // Reusable objects for the orientation math (avoids creating garbage every frame)
+    const zee = new THREE.Vector3(0, 0, 1);
+    const euler = new THREE.Euler();
+    const q0 = new THREE.Quaternion();
+    const q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // -90deg around X
 
     async function startCamera() {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -63,40 +72,58 @@
       });
     }
 
+    // Standard, correct alpha/beta/gamma -> quaternion conversion
+    function applyDeviceOrientationToCamera() {
+      const alpha = THREE.MathUtils.degToRad(deviceAlpha);
+      const beta = THREE.MathUtils.degToRad(deviceBeta);
+      const gamma = THREE.MathUtils.degToRad(deviceGamma);
+      const orient = THREE.MathUtils.degToRad(screenOrientAngle);
+
+      euler.set(beta, alpha, -gamma, 'YXZ');
+      camera.quaternion.setFromEuler(euler);
+      camera.quaternion.multiply(q1);
+      camera.quaternion.multiply(q0.setFromAxisAngle(zee, -orient));
+    }
+
     function handleOrientation(e) {
-      if (!placed || !pizzaModel) return;
+      if (e.alpha === null) return; // some devices briefly fire null readings
+      deviceAlpha = e.alpha;
+      deviceBeta = e.beta;
+      deviceGamma = e.gamma;
+    }
 
-      // Convert device orientation to radians, offset by the reading at placement time
-      const alpha = THREE.MathUtils.degToRad(e.alpha - alpha0);
-      const beta = THREE.MathUtils.degToRad(e.beta - beta0);
-      const gamma = THREE.MathUtils.degToRad(e.gamma - gamma0);
-
-      // Counter-rotate the camera to simulate the model staying "fixed" in space
-      camera.rotation.set(beta, alpha, -gamma, 'YXZ');
+    function handleScreenOrientation() {
+      screenOrientAngle = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
     }
 
     document.getElementById('startBtn').addEventListener('click', async () => {
       await startCamera();
       initThree();
+      handleScreenOrientation();
       animate();
 
-      // iOS requires an explicit permission prompt; Android generally doesn't
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
         await DeviceOrientationEvent.requestPermission();
       }
       window.addEventListener('deviceorientation', handleOrientation);
+      window.addEventListener('orientationchange', handleScreenOrientation);
 
       document.getElementById('startBtn').style.display = 'none';
       document.getElementById('hint').innerText = 'Tap anywhere on the screen to place the pizza';
     });
 
     document.body.addEventListener('click', (e) => {
-      if (e.target.id === 'startBtn' || !pizzaModel) return;
-      if (placed) return;
+      if (e.target.id === 'startBtn' || !pizzaModel || placed) return;
 
-      // Lock the model 1 meter in front of the camera's current facing direction
-      pizzaModel.position.set(0, -0.2, -1);
+      // Figure out which way the camera is currently facing, in world space,
+      // and drop the model there PERMANENTLY (fixed world position).
+      const forward = new THREE.Vector3(0, 0, -1);
+      forward.applyQuaternion(camera.quaternion);
+      forward.multiplyScalar(1.2); // distance in front of camera, in meters
+
+      pizzaModel.position.copy(camera.position).add(forward);
+      pizzaModel.position.y -= 0.2; // drop it slightly lower, like on a table
       pizzaModel.visible = true;
       placed = true;
 
@@ -105,6 +132,7 @@
 
     function animate() {
       requestAnimationFrame(animate);
+      applyDeviceOrientationToCamera();
       renderer.render(scene, camera);
     }
   </script>
