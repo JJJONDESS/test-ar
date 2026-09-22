@@ -21,29 +21,14 @@
 </head>
 <body>
   <video id="video" autoplay playsinline muted></video>
-  <div id="hint">Tap "Start" to enable camera & sensors, then tap the screen to place the pizza</div>
+  <div id="hint">Tap "Start" to view your pizza in AR</div>
   <button id="startBtn">Start AR</button>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
   <script>
     let scene, camera, renderer, pizzaModel;
-    let placed = false;
-
-    // Raw incoming readings
-    let rawAlpha = 0, rawBeta = 0, rawGamma = 0;
-    // Smoothed readings actually used for rendering
-    let smoothAlpha = 0, smoothBeta = 0, smoothGamma = 0;
-    const smoothingFactor = 0.15; // lower = smoother but laggier, higher = snappier but jumpier
-
-    let deviceAlpha = 0, deviceBeta = 0, deviceGamma = 0;
-    let screenOrientAngle = 0;
-
-    // Reusable objects for the orientation math (avoids creating garbage every frame)
-    const zee = new THREE.Vector3(0, 0, 1);
-    const euler = new THREE.Euler();
-    const q0 = new THREE.Quaternion();
-    const q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)); // -90deg around X
+    let autoSpin = true; // stops once the user starts manually rotating
 
     async function startCamera() {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -55,19 +40,25 @@
     function initThree() {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 100);
+      camera.position.set(0, 0, 2); // fixed camera, never moves
+
       renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
       const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
       scene.add(light);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+      dirLight.position.set(1, 1, 1);
+      scene.add(dirLight);
 
       const loader = new THREE.GLTFLoader();
       loader.load('./pizza.glb', (gltf) => {
         pizzaModel = gltf.scene;
-        pizzaModel.scale.set(1.0, 1.0, 1.0); // bumped up from 0.3 — adjust further if still off
-        pizzaModel.visible = false;
+        pizzaModel.scale.set(1.0, 1.0, 1.0); // adjust to taste
+        pizzaModel.position.set(0, 0, 0); // sits fixed in the center of the view
         scene.add(pizzaModel);
+        setupTouchControls();
       });
 
       window.addEventListener('resize', () => {
@@ -77,83 +68,87 @@
       });
     }
 
-    // Standard, correct alpha/beta/gamma -> quaternion conversion
-    function applyDeviceOrientationToCamera() {
-      const alpha = THREE.MathUtils.degToRad(deviceAlpha);
-      const beta = THREE.MathUtils.degToRad(deviceBeta);
-      const gamma = THREE.MathUtils.degToRad(deviceGamma);
-      const orient = THREE.MathUtils.degToRad(screenOrientAngle);
+    function setupTouchControls() {
+      const touchMap = new Map();
+      let previousDistance = null;
+      let dragTouchId = null;
+      let lastDragPos = null;
 
-      euler.set(beta, alpha, -gamma, 'YXZ');
-      camera.quaternion.setFromEuler(euler);
-      camera.quaternion.multiply(q1);
-      camera.quaternion.multiply(q0.setFromAxisAngle(zee, -orient));
-    }
+      function getPair() { return Array.from(touchMap.values()); }
+      function getDistance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
-    function handleOrientation(e) {
-      if (e.alpha === null) return; // some devices briefly fire null readings
-      rawAlpha = e.alpha;
-      rawBeta = e.beta;
-      rawGamma = e.gamma;
+      renderer.domElement.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        autoSpin = false; // user has taken control
+        for (const t of e.changedTouches) {
+          touchMap.set(t.identifier, { x: t.clientX, y: t.clientY });
+        }
+        if (touchMap.size === 2) {
+          const [a, b] = getPair();
+          previousDistance = getDistance(a, b);
+          dragTouchId = null;
+        } else if (touchMap.size === 1) {
+          const id = touchMap.keys().next().value;
+          dragTouchId = id;
+          lastDragPos = { ...touchMap.get(id) };
+          previousDistance = null;
+        }
+      }, { passive: false });
 
-      // Exponential smoothing to reduce sensor jitter/noise
-      smoothAlpha += (rawAlpha - smoothAlpha) * smoothingFactor;
-      smoothBeta += (rawBeta - smoothBeta) * smoothingFactor;
-      smoothGamma += (rawGamma - smoothGamma) * smoothingFactor;
+      renderer.domElement.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+          if (touchMap.has(t.identifier)) {
+            touchMap.set(t.identifier, { x: t.clientX, y: t.clientY });
+          }
+        }
 
-      deviceAlpha = smoothAlpha;
-      deviceBeta = smoothBeta;
-      deviceGamma = smoothGamma;
-    }
+        if (touchMap.size === 2 && previousDistance !== null && pizzaModel) {
+          const [a, b] = getPair();
+          const distance = getDistance(a, b);
+          let scaleFactor = distance / previousDistance;
+          scaleFactor = Math.min(Math.max(scaleFactor, 0.9), 1.1); // clamp per-frame jump
+          let newScale = pizzaModel.scale.x * scaleFactor;
+          newScale = Math.min(Math.max(newScale, 0.3), 5); // overall size limits
+          pizzaModel.scale.set(newScale, newScale, newScale);
+          previousDistance = distance;
+        } else if (touchMap.size === 1 && dragTouchId !== null && touchMap.has(dragTouchId) && pizzaModel) {
+          const current = touchMap.get(dragTouchId);
+          const dx = current.x - lastDragPos.x;
+          const dy = current.y - lastDragPos.y;
+          pizzaModel.rotation.y += dx * 0.01;
+          pizzaModel.rotation.x += dy * 0.01;
+          lastDragPos = { ...current };
+        }
+      }, { passive: false });
 
-    function handleScreenOrientation() {
-      screenOrientAngle = (screen.orientation && screen.orientation.angle) || window.orientation || 0;
+      renderer.domElement.addEventListener('touchend', (e) => {
+        for (const t of e.changedTouches) {
+          touchMap.delete(t.identifier);
+        }
+        if (touchMap.size < 2) previousDistance = null;
+        if (touchMap.size !== 1) {
+          dragTouchId = null;
+        } else {
+          dragTouchId = touchMap.keys().next().value;
+          lastDragPos = { ...touchMap.get(dragTouchId) };
+        }
+      }, { passive: false });
     }
 
     document.getElementById('startBtn').addEventListener('click', async () => {
       await startCamera();
       initThree();
-      handleScreenOrientation();
       animate();
-
-      if (typeof DeviceOrientationEvent !== 'undefined' &&
-          typeof DeviceOrientationEvent.requestPermission === 'function') {
-        await DeviceOrientationEvent.requestPermission();
-      }
-      window.addEventListener('deviceorientation', handleOrientation);
-      window.addEventListener('orientationchange', handleScreenOrientation);
-
       document.getElementById('startBtn').style.display = 'none';
-      document.getElementById('hint').innerText = 'Tap anywhere on the screen to place the pizza';
-    });
-
-    document.body.addEventListener('click', (e) => {
-      if (e.target.id === 'startBtn' || !pizzaModel || placed) return;
-
-      // Figure out which way the camera is currently facing, in world space,
-      // and drop the model there PERMANENTLY (fixed world position).
-      const forward = new THREE.Vector3(0, 0, -1);
-      forward.applyQuaternion(camera.quaternion);
-      forward.multiplyScalar(1.2); // distance in front of camera, in meters
-
-      pizzaModel.position.copy(camera.position).add(forward);
-      pizzaModel.position.y -= 0.2; // drop it slightly lower, like on a table
-      pizzaModel.visible = true;
-      placed = true;
-
-      document.getElementById('hint').innerText = 'Pizza placed! Rotate your phone to look around';
+      document.getElementById('hint').innerText = 'Drag with 1 finger to rotate, pinch to resize';
     });
 
     function animate() {
       requestAnimationFrame(animate);
-      applyDeviceOrientationToCamera();
-
-      // Slow constant spin so the model's 3D depth/sides are visible
-      // even if you're standing still and only turning the phone.
-      if (pizzaModel && placed) {
+      if (pizzaModel && autoSpin) {
         pizzaModel.rotation.y += 0.005;
       }
-
       renderer.render(scene, camera);
     }
   </script>
