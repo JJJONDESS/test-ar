@@ -71,12 +71,12 @@
 
     function setupTouchControls() {
       const touchMap = new Map();
-      let previousDistance = null;
+      let previousAngle = null;
       let dragTouchId = null;
       let lastDragPos = null;
 
       function getPair() { return Array.from(touchMap.values()); }
-      function getDistance(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+      function getAngle(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
 
       renderer.domElement.addEventListener('touchstart', (e) => {
         e.preventDefault();
@@ -86,13 +86,13 @@
         }
         if (touchMap.size === 2) {
           const [a, b] = getPair();
-          previousDistance = getDistance(a, b);
+          previousAngle = getAngle(a, b);
           dragTouchId = null;
         } else if (touchMap.size === 1) {
           const id = touchMap.keys().next().value;
           dragTouchId = id;
           lastDragPos = { ...touchMap.get(id) };
-          previousDistance = null;
+          previousAngle = null;
         }
       }, { passive: false });
 
@@ -104,21 +104,31 @@
           }
         }
 
-        if (touchMap.size === 2 && previousDistance !== null && pizzaModel) {
+        if (touchMap.size === 2 && previousAngle !== null && pizzaModel) {
+          // Two-finger twist -> rotate, proportional to how far you twist your fingers
           const [a, b] = getPair();
-          const distance = getDistance(a, b);
-          let scaleFactor = distance / previousDistance;
-          scaleFactor = Math.min(Math.max(scaleFactor, 0.9), 1.1); // clamp per-frame jump
-          let newScale = pizzaModel.scale.x * scaleFactor;
-          newScale = Math.min(Math.max(newScale, 0.3), 5); // overall size limits
-          pizzaModel.scale.set(newScale, newScale, newScale);
-          previousDistance = distance;
+          const angle = getAngle(a, b);
+          let angleDelta = angle - previousAngle;
+          if (angleDelta > Math.PI) angleDelta -= 2 * Math.PI;
+          if (angleDelta < -Math.PI) angleDelta += 2 * Math.PI;
+          pizzaModel.rotation.y += angleDelta;
+          previousAngle = angle;
         } else if (touchMap.size === 1 && dragTouchId !== null && touchMap.has(dragTouchId) && pizzaModel) {
+          // One-finger drag -> move the pizza's position on screen
           const current = touchMap.get(dragTouchId);
           const dx = current.x - lastDragPos.x;
           const dy = current.y - lastDragPos.y;
-          pizzaModel.rotation.y += dx * 0.01;
-          pizzaModel.rotation.x += dy * 0.01;
+
+          // Convert screen-pixel movement into world-space movement,
+          // using the camera's right/up directions so it tracks the finger 1:1
+          const moveScale = 0.003;
+          const right = new THREE.Vector3();
+          const up = new THREE.Vector3();
+          camera.matrixWorld.extractBasis(right, up, new THREE.Vector3());
+
+          pizzaModel.position.addScaledVector(right, dx * moveScale);
+          pizzaModel.position.addScaledVector(up, -dy * moveScale);
+
           lastDragPos = { ...current };
         }
       }, { passive: false });
@@ -127,7 +137,7 @@
         for (const t of e.changedTouches) {
           touchMap.delete(t.identifier);
         }
-        if (touchMap.size < 2) previousDistance = null;
+        if (touchMap.size < 2) previousAngle = null;
         if (touchMap.size !== 1) {
           dragTouchId = null;
         } else {
@@ -158,7 +168,7 @@
         pizzaModel.position.copy(targetPos);
         pizzaModel.visible = true;
         placed = true;
-        document.getElementById('hint').innerText = 'Drag with 1 finger to rotate, pinch to resize';
+        document.getElementById('hint').innerText = 'Drag with 1 finger to move, twist 2 fingers to rotate';
       }, { passive: true, capture: true });
     }
 
