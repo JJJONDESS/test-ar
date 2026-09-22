@@ -1,210 +1,25 @@
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      html, body { margin: 0; padding: 0; overflow: hidden; }
-      a-scene canvas { touch-action: none; } /* stops the browser from scrolling/zooming while dragging */
+// add this near the top of the component, alongside touchMap:
+this.dragTouchId = null;
+this.lastDragPos = null;
 
-      #ui {
-        position: fixed;
-        bottom: 20px;
-        left: 0;
-        right: 0;
-        display: flex;
-        justify-content: center;
-        gap: 10px;
-        z-index: 9999;
-      }
-      #ui button {
-        padding: 12px 20px;
-        font-size: 16px;
-        border: none;
-        border-radius: 8px;
-        background: #ff5a36;
-        color: white;
-        font-weight: bold;
-      }
-      #hint {
-        position: fixed;
-        top: 20px;
-        left: 0;
-        right: 0;
-        text-align: center;
-        color: white;
-        font-family: sans-serif;
-        font-size: 14px;
-        text-shadow: 0 0 4px black;
-        z-index: 9999;
-        pointer-events: none;
-      }
-    </style>
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-  </head>
-  <body>
-    <div id="hint">Point camera at your marker, then tap "Place Pizza"</div>
-    <div id="ui">
-      <button id="placeBtn">Place Pizza</button>
-      <button id="resetBtn">Reset</button>
-    </div>
+// inside onTouchStart, after populating touchMap:
+if (this.touchMap.size === 1) {
+  const id = this.touchMap.keys().next().value;
+  this.dragTouchId = id;
+  this.lastDragPos = { ...this.touchMap.get(id) };
+}
 
-    <a-scene mindar-image="imageTargetSrc: ./pizza-target.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-      <a-assets>
-        <a-asset-item id="pizzaModel" src="./pizza.glb"></a-asset-item>
-      </a-assets>
+// inside onTouchMove, replace the "else if size===1" branch with:
+else if (this.touchMap.size === 1 && this.dragTouchId !== null && this.touchMap.has(this.dragTouchId)) {
+  const current = this.touchMap.get(this.dragTouchId);
+  const dx = current.x - this.lastDragPos.x;
+  const dy = current.y - this.lastDragPos.y;
+  const moveScale = 0.004;
+  obj.position.x += dx * moveScale;
+  obj.position.y -= dy * moveScale;
+  this.lastDragPos = { ...current };
+}
 
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-      <a-entity id="target" mindar-image-target="targetIndex: 0">
-        <a-gltf-model id="trackedPizza" rotation="0 0 0" position="0 0 0.1" scale="3 3 3" src="#pizzaModel">
-        </a-gltf-model>
-      </a-entity>
-    </a-scene>
-
-    <script>
-      // ---- Component: enables one-finger drag, two-finger rotate, pinch-to-scale ----
-      AFRAME.registerComponent('freeform-control', {
-        init: function () {
-          this.previousDistance = null;
-          this.previousAngle = null;
-          this.previousSingleTouch = null;
-
-          this.onTouchStart = this.onTouchStart.bind(this);
-          this.onTouchMove = this.onTouchMove.bind(this);
-          this.onTouchEnd = this.onTouchEnd.bind(this);
-
-          const canvas = this.el.sceneEl.canvas;
-          canvas.addEventListener('touchstart', this.onTouchStart, { passive: false });
-          canvas.addEventListener('touchmove', this.onTouchMove, { passive: false });
-          canvas.addEventListener('touchend', this.onTouchEnd, { passive: false });
-          canvas.addEventListener('touchcancel', this.onTouchEnd, { passive: false });
-        },
-
-        remove: function () {
-          const canvas = this.el.sceneEl.canvas;
-          canvas.removeEventListener('touchstart', this.onTouchStart);
-          canvas.removeEventListener('touchmove', this.onTouchMove);
-          canvas.removeEventListener('touchend', this.onTouchEnd);
-          canvas.removeEventListener('touchcancel', this.onTouchEnd);
-        },
-
-        getDistance: function (t1, t2) {
-          const dx = t1.clientX - t2.clientX;
-          const dy = t1.clientY - t2.clientY;
-          return Math.sqrt(dx * dx + dy * dy);
-        },
-
-        getAngle: function (t1, t2) {
-          return Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX);
-        },
-
-        onTouchStart: function (e) {
-          e.preventDefault();
-          const touches = e.touches;
-          if (touches.length === 2) {
-            this.previousDistance = this.getDistance(touches[0], touches[1]);
-            this.previousAngle = this.getAngle(touches[0], touches[1]);
-            this.previousSingleTouch = null;
-          } else if (touches.length === 1) {
-            this.previousSingleTouch = { x: touches[0].clientX, y: touches[0].clientY };
-            this.previousDistance = null;
-            this.previousAngle = null;
-          }
-        },
-
-        onTouchMove: function (e) {
-          e.preventDefault();
-          const touches = e.touches;
-          const obj = this.el.object3D;
-
-          if (touches.length === 2 && this.previousDistance !== null) {
-            // Pinch = scale
-            const distance = this.getDistance(touches[0], touches[1]);
-            const scaleFactor = distance / this.previousDistance;
-            let newScale = obj.scale.x * scaleFactor;
-            newScale = Math.min(Math.max(newScale, 0.5), 15); // clamp so it can't vanish or explode
-            obj.scale.set(newScale, newScale, newScale);
-
-            // Twist = rotate around Y axis
-            const angle = this.getAngle(touches[0], touches[1]);
-            const angleDelta = angle - this.previousAngle;
-            obj.rotation.y += angleDelta;
-
-            this.previousDistance = distance;
-            this.previousAngle = angle;
-          } else if (touches.length === 1 && this.previousSingleTouch) {
-            // One finger = drag
-            const dx = touches[0].clientX - this.previousSingleTouch.x;
-            const dy = touches[0].clientY - this.previousSingleTouch.y;
-            const moveScale = 0.004; // sensitivity, tweak if it feels too fast/slow
-
-            obj.position.x += dx * moveScale;
-            obj.position.y -= dy * moveScale; // screen Y is inverted vs world Y
-
-            this.previousSingleTouch = { x: touches[0].clientX, y: touches[0].clientY };
-          }
-        },
-
-        onTouchEnd: function (e) {
-          const touches = e.touches;
-          if (touches.length < 2) {
-            this.previousDistance = null;
-            this.previousAngle = null;
-          }
-          if (touches.length === 0) {
-            this.previousSingleTouch = null;
-          } else if (touches.length === 1) {
-            this.previousSingleTouch = { x: touches[0].clientX, y: touches[0].clientY };
-          }
-        }
-      });
-
-      // ---- Wire up buttons once the scene has loaded ----
-      const sceneEl = document.querySelector('a-scene');
-      const placeBtn = document.getElementById('placeBtn');
-      const resetBtn = document.getElementById('resetBtn');
-      const hint = document.getElementById('hint');
-      let freeEntity = null;
-
-      placeBtn.addEventListener('click', () => {
-        const targetEl = document.getElementById('target');
-        const trackedPizza = document.getElementById('trackedPizza');
-
-        // Make sure the marker is actually being seen right now
-        if (!targetEl.object3D.visible) {
-          alert('Point your camera at the marker first, then tap Place.');
-          return;
-        }
-
-        if (freeEntity) return; // already placed
-
-        // Detach the model's Object3D from the tracked target and reparent
-        // it directly under the scene, preserving its current world transform.
-        sceneEl.object3D.attach(trackedPizza.object3D);
-
-        freeEntity = trackedPizza;
-        freeEntity.setAttribute('freeform-control', '');
-
-        hint.innerText = 'Drag with 1 finger to move, 2 fingers to rotate/pinch to scale';
-        placeBtn.style.display = 'none';
-      });
-
-      resetBtn.addEventListener('click', () => {
-        if (!freeEntity) return;
-
-        // Put it back under the marker target, reset to original transform
-        const targetEl = document.getElementById('target');
-        freeEntity.removeAttribute('freeform-control');
-        targetEl.object3D.attach(freeEntity.object3D);
-
-        freeEntity.setAttribute('position', '0 0 0.1');
-        freeEntity.setAttribute('rotation', '0 0 0');
-        freeEntity.setAttribute('scale', '3 3 3');
-
-        freeEntity = null;
-        hint.innerText = 'Point camera at your marker, then tap "Place Pizza"';
-        placeBtn.style.display = 'inline-block';
-      });
-    </script>
-  </body>
-</html>
+// inside onTouchEnd, after deleting:
+if (this.touchMap.size !== 1) { this.dragTouchId = null; this.lastDragPos = null; }
+else { this.dragTouchId = this.touchMap.keys().next().value; this.lastDragPos = { ...this.touchMap.get(this.dragTouchId) }; }
