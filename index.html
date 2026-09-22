@@ -1,35 +1,21 @@
-<!DOCTYPE html>
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <script src="https://aframe.io"></script>
-    <script src="https://jsdelivr.net"></script>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
   <body>
-    <a-scene mindar-image="imageTargetSrc: https://jsdelivr.net;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+    <a-scene mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
       <a-assets>
-        <a-asset-item id="pizzaModel" src="./pizza.glb"></a-asset-item>
+        <!-- Keeping the required card asset so A-Frame initializes perfectly -->
+        <img id="card" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png" />
       </a-assets>
 
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
-
-      <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
-      <a-light type="directional" color="#ffffff" intensity="0.6" position="1 2 1"></a-light>
-
       
-        <!-- 
-          UPDATED SCALE: Changed from 0.05 to a full baseline 1 1 1.
-          If your pizza was loading as an invisible microscopic speck, this fixes it.
-        -->
-        <a-gltf-model 
-          id="pizza" 
-          src="#pizzaModel" 
-          rotation="0 0 0" 
-          position="0 0 0.1" 
-          scale="1 1 1" 
-          animation="property: rotation; to: 0 360 0; dur: 6000; easing: linear; loop: true">
-        </a-gltf-model>
       
+        
+        <a-box color="tomato" depth="0.2" height="0.2" width="0.2" position="0 0 0.1" animation="property: rotation; to: 0 360 0; dur: 6000; easing: linear; loop: true"></a-box>
       
     </a-scene>
   </body>
