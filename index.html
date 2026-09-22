@@ -56,9 +56,10 @@
       loader.load('./pizza.glb', (gltf) => {
         pizzaModel = gltf.scene;
         pizzaModel.scale.set(1.0, 1.0, 1.0); // adjust to taste
-        pizzaModel.position.set(0, 0, 0); // sits fixed in the center of the view
+        pizzaModel.visible = false; // hidden until the user taps to place it
         scene.add(pizzaModel);
         setupTouchControls();
+        setupPlacementTap();
       });
 
       window.addEventListener('resize', () => {
@@ -136,12 +137,37 @@
       }, { passive: false });
     }
 
+    let placed = false;
+
+    function setupPlacementTap() {
+      renderer.domElement.addEventListener('touchstart', (e) => {
+        if (placed || e.touches.length !== 1) return;
+
+        const touch = e.touches[0];
+        // Convert the tap's screen position into normalized device coords (-1 to 1)
+        const ndcX = (touch.clientX / window.innerWidth) * 2 - 1;
+        const ndcY = -(touch.clientY / window.innerHeight) * 2 + 1;
+
+        // Unproject that screen point into 3D space at a fixed distance from the camera
+        const vector = new THREE.Vector3(ndcX, ndcY, 0.5);
+        vector.unproject(camera);
+        const dir = vector.sub(camera.position).normalize();
+        const distance = 2; // how far in front of the camera to place it, in meters
+        const targetPos = camera.position.clone().add(dir.multiplyScalar(distance));
+
+        pizzaModel.position.copy(targetPos);
+        pizzaModel.visible = true;
+        placed = true;
+        document.getElementById('hint').innerText = 'Drag with 1 finger to rotate, pinch to resize';
+      }, { passive: true, capture: true });
+    }
+
     document.getElementById('startBtn').addEventListener('click', async () => {
       await startCamera();
       initThree();
       animate();
       document.getElementById('startBtn').style.display = 'none';
-      document.getElementById('hint').innerText = 'Drag with 1 finger to rotate, pinch to resize';
+      document.getElementById('hint').innerText = 'Tap anywhere on the screen to place your pizza';
     });
 
     function animate() {
